@@ -385,7 +385,7 @@ function isIndexedDBValid() {
         // as Safari. Oh the lulz...
         var isSafari = typeof openDatabase !== 'undefined' && /(Safari|iPhone|iPad|iPod)/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent) && !/BlackBerry/.test(navigator.platform);
 
-        var hasFetch = typeof fetch === 'function' && fetch.toString().indexOf('[native code') !== -1;
+        var hasFetch = typeof fetch === 'function';
 
         // Safari <10.1 does not meet our requirements for IDB support
         // (see: https://github.com/pouchdb/pouchdb/issues/5572).
@@ -785,6 +785,35 @@ function _tryReconnect(dbInfo) {
     });
 }
 
+// Safari could garbage collect transaction before oncomplete/onerror/onabort being dispatched
+// reference transaction to stop it being garbage collected and remove the reference when it finish
+var _refTransaction = {};
+var _refTransactionId = 0;
+
+function createReadWriteTransactionHelper() {
+    var unref = undefined;
+    return {
+        create: function create(dbInfo, callback, retries) {
+            createTransaction(dbInfo, READ_WRITE, function (err, transaction) {
+                var id = _refTransactionId++ % Number.MAX_SAFE_INTEGER;
+                _refTransaction[id] = transaction;
+                unref = function unref() {
+                    delete _refTransaction[id];
+                };
+                callback(err, transaction);
+            }, retries);
+        },
+        done: function done(promise) {
+            var lazyUnref = function lazyUnref() {
+                if (unref) {
+                    unref();
+                }
+            };
+            promise.then(lazyUnref, lazyUnref);
+        }
+    };
+}
+
 // FF doesn't like Promises (micro-tasks) and IDDB store operations,
 // so we have to do it with callbacks
 function createTransaction(dbInfo, mode, callback, retries) {
@@ -1011,6 +1040,7 @@ function setItem(key, value, callback) {
 
     key = normalizeKey(key);
 
+    var helper = createReadWriteTransactionHelper();
     var promise = new Promise$1(function (resolve, reject) {
         var dbInfo;
         self.ready().then(function () {
@@ -1025,7 +1055,7 @@ function setItem(key, value, callback) {
             }
             return value;
         }).then(function (value) {
-            createTransaction(self._dbInfo, READ_WRITE, function (err, transaction) {
+            helper.create(self._dbInfo, function (err, transaction) {
                 if (err) {
                     return reject(err);
                 }
@@ -1066,7 +1096,7 @@ function setItem(key, value, callback) {
             });
         })["catch"](reject);
     });
-
+    helper.done(promise);
     executeCallback(promise, callback);
     return promise;
 }
@@ -1076,9 +1106,10 @@ function removeItem(key, callback) {
 
     key = normalizeKey(key);
 
+    var helper = createReadWriteTransactionHelper();
     var promise = new Promise$1(function (resolve, reject) {
         self.ready().then(function () {
-            createTransaction(self._dbInfo, READ_WRITE, function (err, transaction) {
+            helper.create(self._dbInfo, function (err, transaction) {
                 if (err) {
                     return reject(err);
                 }
@@ -1111,6 +1142,7 @@ function removeItem(key, callback) {
             });
         })["catch"](reject);
     });
+    helper.done(promise);
 
     executeCallback(promise, callback);
     return promise;
@@ -1119,9 +1151,10 @@ function removeItem(key, callback) {
 function clear(callback) {
     var self = this;
 
+    var helper = createReadWriteTransactionHelper();
     var promise = new Promise$1(function (resolve, reject) {
         self.ready().then(function () {
-            createTransaction(self._dbInfo, READ_WRITE, function (err, transaction) {
+            helper.create(self._dbInfo, function (err, transaction) {
                 if (err) {
                     return reject(err);
                 }
@@ -1144,6 +1177,7 @@ function clear(callback) {
             });
         })["catch"](reject);
     });
+    helper.done(promise);
 
     executeCallback(promise, callback);
     return promise;
