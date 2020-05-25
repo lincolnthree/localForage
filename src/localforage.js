@@ -340,8 +340,7 @@ class LocalForage {
                     const error = new Error(
                         'No available storage method found.'
                     );
-                    self._driverSet = Promise.reject(error);
-                    return self._driverSet;
+                    return Promise.reject(error);
                 }
 
                 return driverPromiseLoop();
@@ -372,8 +371,7 @@ class LocalForage {
             .catch(() => {
                 setDriverToConfig();
                 const error = new Error('No available storage method found.');
-                self._driverSet = Promise.reject(error);
-                return self._driverSet;
+                return Promise.reject(error);
             });
 
         executeTwoCallbacks(this._driverSet, callback, errorCallback);

@@ -2754,8 +2754,7 @@ var LocalForage = function () {
 
                     setDriverToConfig();
                     var error = new Error('No available storage method found.');
-                    self._driverSet = Promise$1.reject(error);
-                    return self._driverSet;
+                    return Promise$1.reject(error);
                 }
 
                 return driverPromiseLoop();
@@ -2783,8 +2782,7 @@ var LocalForage = function () {
         })["catch"](function () {
             setDriverToConfig();
             var error = new Error('No available storage method found.');
-            self._driverSet = Promise$1.reject(error);
-            return self._driverSet;
+            return Promise$1.reject(error);
         });
 
         executeTwoCallbacks(this._driverSet, callback, errorCallback);
