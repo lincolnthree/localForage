@@ -2157,7 +2157,7 @@ var DefaultConfig = {
     description: '',
     driver: DefaultDriverOrder.slice(),
     name: 'localforage',
-    // Default DB size is _JUST UNDER_ 5MB, as it's the highest size
+    // Default DB size is _JUST UNDER_ 5MB, as it's the highest size.
     // we can use without a prompt.
     size: 4980736,
     storeName: 'keyvaluepairs',
@@ -2241,8 +2241,10 @@ var LocalForage = function () {
             }
 
             for (var i in options) {
-                if (i === 'storeName') {
+                if (i === 'storeName' && typeof options[i] === 'string') {
                     options[i] = options[i].replace(/\W/g, '_');
+                } else if (i === 'storeName' && typeof options[i] !== 'string') {
+                    return new Error('storeName must be a string');
                 }
 
                 if (i === 'version' && typeof options[i] !== 'number') {
